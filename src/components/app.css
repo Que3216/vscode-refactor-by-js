@@ -65,6 +65,7 @@
   overflow: scroll;
   font-size: 12px;
   height: 100%;
+  position: relative;
 }
 
 .code-preview > code {
