@@ -1,0 +1,67 @@
+.app {
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.search-column {
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.editor-column {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.previews {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+}
+
+.search-results {
+  overflow-x: hidden;
+  overflow-y: scroll;
+}
+
+.bp3-menu {
+  background: none !important;
+}
+
+.file-contents-before, .file-contents-after {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  overflow: hidden;
+}
+
+.code {
+  min-height: 300px !important;
+  width: 100%;
+}
+
+.code-preview {
+  margin: 10px;
+  overflow: scroll;
+}
+
+.buttons {
+  display: flex;
+  flex-direction: row;
+  align-content: flex-end;
+}
+
+.buttons > * {
+  margin: 10px;
+}
