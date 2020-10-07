@@ -1,7 +1,10 @@
-import * as React from 'react';
-import './app.css';
-import { Button, Classes, InputGroup, Menu, MenuItem, TextArea } from "@blueprintjs/core";
+import { Classes, InputGroup, Label, TextArea } from "@blueprintjs/core";
 import { debounce } from "lodash-es";
+import * as React from 'react';
+import { LoadState } from '../utils/LoadState';
+import { ActionButtons } from "./ActionButtons";
+import './app.css';
+import { FileList } from "./FileList";
 
 export interface IAppProps {
   vscode: any;
@@ -40,7 +43,7 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
   const initialState = savedState === undefined ? DEFAULT_STATE : savedState;
   const [pathGlob, setPathGlob] = React.useState<string>(initialState.pathGlob);
   const [searchText, setSearchText] = React.useState<string>(initialState.searchText);
-  const [searchResults, setSearchResults] = React.useState<string[] | undefined>(undefined);
+  const [searchResults, setSearchResults] = React.useState<LoadState<string[]>>({ state: "loading" });
   const [selectedPath, setSelectedPath] = React.useState<string | undefined>(initialState.selectedPath);
   const [fileContents, setFileContents] = React.useState<string | undefined>(undefined);
   const [code, setCode] = React.useState<string>(initialState.code);
@@ -81,6 +84,18 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
     return () => window.removeEventListener("message", handleReceiveMessage);
   }, []);
 
+  const handleReceiveMessage = (event: any) => {
+    const message = event.data; // The json data that the extension sent
+    switch (message.command) {
+        case "new-search-results":
+          setSearchResults({ state: "loaded", value: message.searchResults });
+          break;
+        case "loaded-file-contents":
+          setFileContents(message.contents);
+          break;
+    }
+  };
+
   const handleChangePathGlob = (event: React.ChangeEvent<HTMLInputElement>) => {
     setPathGlob(event.target.value)
   };
@@ -90,9 +105,12 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
   };
 
   const handleClickReplaceAll = () => {
+    if (searchResults.state === "loading") {
+      throw new Error("Button is disabled while results are loading, so this should be impossible");
+    }
     vscode.postMessage({
         command: "replace-all",
-        paths: searchResults,
+        paths: searchResults.value,
         code,
     });
   };
@@ -119,30 +137,22 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
     });
   };
 
-  const handleReceiveMessage = (event: any) => {
-    const message = event.data; // The json data that the extension sent
-    switch (message.command) {
-        case "new-search-results":
-          setSearchResults(message.searchResults);
-          break;
-        case "loaded-file-contents":
-          setFileContents(message.contents);
-          break;
-    }
-  };
-
-  const searchResultsMenu = (
-    <Menu className="search-results">
-        {(searchResults || []).map(path => <MenuItem text={shortenPath(path)} title={path} onClick={() => handleSelectFile(path)} active={path === selectedPath} />)}
-    </Menu>
-  );
-
   return (
     <div className={"app " + Classes.DARK}>
       <div className="search-column">
-        <InputGroup placeholder="" onChange={handleChangeSearchText} value={searchText} />
-        <InputGroup placeholder="Files to include" onChange={handleChangePathGlob} value={pathGlob} />
-        {searchResults === undefined ? <SearchResultsSkeleton /> : searchResultsMenu}
+        <Label className="search-box-label">
+          Search text
+          <InputGroup onChange={handleChangeSearchText} value={searchText} />
+        </Label>
+        <Label className="search-box-label">
+          Files to include
+          <InputGroup onChange={handleChangePathGlob} value={pathGlob} />
+        </Label>
+        <FileList
+          filePaths={searchResults}
+          selectedFilePath={selectedPath}
+          onSelectFile={handleSelectFile}
+        />
       </div>
       <div className="editor-column">
         <TextArea className="code" onChange={handleChangeCode} value={code} />
@@ -160,40 +170,16 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
             </pre>
           </div>
         </div>
-        <div className="buttons">
-          <Button
-            disabled={selectedPath === undefined}
-            text={selectedPath !== undefined ? "Replace in " + getFileName(selectedPath) : "Replace"}
-            onClick={handleClickReplace}
-          />
-          <Button
-            intent="primary"
-            disabled={searchResults === undefined || searchResults.length === 0}
-            text={searchResults === undefined ? "Replace in all files" : "Replace in all " + searchResults.length + " file(s)"}
-            onClick={handleClickReplaceAll}
-          />
-        </div>
+        <ActionButtons
+          selectedPath={selectedPath}
+          numSearchResults={searchResults.state === "loading" ? 0 : searchResults.value.length}
+          onClickReplace={handleClickReplace}
+          onClickReplaceAll={handleClickReplaceAll}
+        />
       </div>
     </div>
   );
 };
-
-
-const SearchResultsSkeleton: React.FC<{}> = () => (
-  <Menu className={"search-results " + Classes.SKELETON}>
-    <MenuItem text="skeleton-result" />
-    <MenuItem text="skeleton-result" />
-    <MenuItem text="skeleton-result" />
-  </Menu>
-);
-
-function getFileName(path: string) {
-  if (!path) {
-    return "";
-  }
-  const parts = path.split("/");
-  return parts[parts.length - 1];
-}
 
 function evalReplacement(fileContents: string, code: string) {
   const stringifiedContents = JSON.stringify({ fileContents: fileContents });
@@ -203,11 +189,4 @@ function evalReplacement(fileContents: string, code: string) {
   } catch (e) {
     return "" + e;
   }
-}
-
-function shortenPath(path: string) {
-  if (path.length > 30) {
-    return "..." + path.substr(-30);
-  }
-  return path;
 }
