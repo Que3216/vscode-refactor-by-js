@@ -1,6 +1,7 @@
-import { Classes, InputGroup, Label, TextArea } from "@blueprintjs/core";
+import { Classes, Colors, InputGroup, Label, TextArea } from "@blueprintjs/core";
 import { debounce } from "lodash-es";
 import * as React from 'react';
+import PanelGroup, { PanelWidth } from "react-panelgroup";
 import { LoadState } from '../utils/LoadState';
 import { ActionButtons } from "./ActionButtons";
 import './app.css';
@@ -29,6 +30,13 @@ interface IState {
   searchText: string;
   selectedPath: string | undefined;
   code: string;
+  layout: Layout;
+}
+
+interface Layout {
+  searchSidebarVsMainSplit: PanelWidth[];
+  codeVsResultsSplit: PanelWidth[];
+  beforeVsAfterSplit: PanelWidth[];
 }
 
 const DEFAULT_STATE: IState = {
@@ -36,12 +44,22 @@ const DEFAULT_STATE: IState = {
   searchText: "",
   selectedPath: undefined,
   code: DEFAULT_CODE,
+  layout: {
+    searchSidebarVsMainSplit: [{ size: 250 }, {}],
+    codeVsResultsSplit: [{ size: 300 }, {}],
+    beforeVsAfterSplit: [],
+  }
 };
+
+// Matches vscode color
+// TODO: Import vscode library
+const DIVIDER_COLOR = "#424242";
 
 export const App: React.FC<IAppProps> = ({ vscode }) => {
   const savedState = vscode.getState() as (IState | undefined);
   const initialState = savedState === undefined ? DEFAULT_STATE : savedState;
   const [pathGlob, setPathGlob] = React.useState<string>(initialState.pathGlob);
+  const [layout, setLayout] = React.useState<Layout>(initialState.layout);
   const [searchText, setSearchText] = React.useState<string>(initialState.searchText);
   const [searchResults, setSearchResults] = React.useState<LoadState<string[]>>({ state: "loading" });
   const [selectedPath, setSelectedPath] = React.useState<string | undefined>(initialState.selectedPath);
@@ -54,8 +72,9 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
       searchText,
       selectedPath,
       code,
+      layout,
     });
-  }, [pathGlob, searchText, selectedPath, code])
+  }, [pathGlob, searchText, selectedPath, code, layout])
 
   React.useEffect(() => {
     if (initialState.selectedPath !== undefined && fileContents === undefined) {
@@ -139,44 +158,67 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
 
   return (
     <div className={"app " + Classes.DARK}>
-      <div className="search-column">
-        <Label className="search-box-label">
-          Search text
-          <InputGroup onChange={handleChangeSearchText} value={searchText} />
-        </Label>
-        <Label className="search-box-label">
-          Files to include
-          <InputGroup onChange={handleChangePathGlob} value={pathGlob} />
-        </Label>
-        <FileList
-          filePaths={searchResults}
-          selectedFilePath={selectedPath}
-          onSelectFile={handleSelectFile}
-        />
-      </div>
-      <div className="editor-column">
-        <TextArea className="code" onChange={handleChangeCode} value={code} />
-        <div className="previews">
-          <div className="file-contents-before">
-            <h3>Before</h3>
-            <pre className="code-preview">
-              {fileContents}
-            </pre>
-          </div>
-          <div className="file-contents-after">
-            <h3>After</h3>
-            <pre className="code-preview">
-              {fileContents && evalReplacement(fileContents, code)}
-            </pre>
-          </div>
+      <PanelGroup
+        direction="row"
+        borderColor={DIVIDER_COLOR}
+        panelWidths={layout.searchSidebarVsMainSplit}
+        onUpdate={widths => setLayout({ ...layout, searchSidebarVsMainSplit: widths as PanelWidth[] })}
+      >
+        <div className="search-column">
+          <Label className="search-box-label">
+            Search text
+            <InputGroup onChange={handleChangeSearchText} value={searchText} />
+          </Label>
+          <Label className="search-box-label">
+            Files to include
+            <InputGroup onChange={handleChangePathGlob} value={pathGlob} />
+          </Label>
+          <FileList
+            filePaths={searchResults}
+            selectedFilePath={selectedPath}
+            onSelectFile={handleSelectFile}
+          />
         </div>
-        <ActionButtons
-          selectedPath={selectedPath}
-          numSearchResults={searchResults.state === "loading" ? 0 : searchResults.value.length}
-          onClickReplace={handleClickReplace}
-          onClickReplaceAll={handleClickReplaceAll}
-        />
-      </div>
+        <div className="editor-column">
+          <PanelGroup
+            direction="column"
+            borderColor={DIVIDER_COLOR}
+            panelWidths={layout.codeVsResultsSplit}
+            onUpdate={widths => setLayout({ ...layout, codeVsResultsSplit: widths as PanelWidth[] })}
+          >
+            <TextArea className="code" onChange={handleChangeCode} value={code} />
+            <div className="preview-and-execute-row">
+              <div className="previews">
+                <PanelGroup
+                  direction="row"
+                  borderColor={DIVIDER_COLOR}
+                  panelWidths={layout.beforeVsAfterSplit}
+                  onUpdate={widths => setLayout({ ...layout, beforeVsAfterSplit: widths as PanelWidth[] })}
+                >
+                  <div className="file-contents-before">
+                    <h3 className="panel-header">Before</h3>
+                    <pre className="code-preview">
+                      {fileContents}
+                    </pre>
+                  </div>
+                  <div className="file-contents-after">
+                    <h3 className="panel-header">After</h3>
+                    <pre className="code-preview">
+                      {fileContents && evalReplacement(fileContents, code)}
+                    </pre>
+                  </div>
+                </PanelGroup>
+              </div>
+              <ActionButtons
+                selectedPath={selectedPath}
+                numSearchResults={searchResults.state === "loading" ? 0 : searchResults.value.length}
+                onClickReplace={handleClickReplace}
+                onClickReplaceAll={handleClickReplaceAll}
+              />
+            </div>
+          </PanelGroup>
+        </div>
+      </PanelGroup>
     </div>
   );
 };
