@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as tsMorph from 'ts-morph'
 
 export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('refactor-by-js.start', () => {
@@ -16,6 +17,11 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 		});
 	}
+}
+
+interface IFileContents {
+	ast: string;
+	code: string;
 }
 
 /**
@@ -89,7 +95,21 @@ class RefactorByJsPanel {
 					return;
 				case 'load-file-contents':
 					const contents = fs.readFileSync(message.path, "utf8");
-					this._panel.webview.postMessage({ command: 'loaded-file-contents', path: message.path, contents });
+					this._panel.webview.postMessage({
+						command: 'loaded-file-contents',
+						path: message.path,
+						contents: contents,
+						ast: sourceFileToAst(message.path, contents),
+					});
+					return;
+				case 'transform-file-contents':
+					this._panel.webview.postMessage({
+						command: 'transformed-file-contents',
+						path: message.path,
+						contents: message.contents,
+						code: message.code,
+						transformedContents: transformFile(message.path, message.contents, message.code),
+					});
 					return;
 				case 'replace-all':
 					vscode.window.withProgress({ title: "Refactor by JS", location: vscode.ProgressLocation.Notification, cancellable: true }, async (progress, token) => {
@@ -105,7 +125,7 @@ class RefactorByJsPanel {
 								const fileUri = vscode.Uri.file(path);
 								const encodedContents = await vscode.workspace.fs.readFile(fileUri);
 								const decodedContents = new TextDecoder("utf-8").decode(encodedContents);
-								const updatedContents = evalReplacement(decodedContents, message.code);
+								const updatedContents = evalReplacementToString(path, decodedContents, message.code);
 								if (updatedContents !== decodedContents) {
 									await vscode.workspace.fs.writeFile(fileUri, new TextEncoder().encode(updatedContents));
 								}
@@ -222,8 +242,51 @@ function getNonce() {
 	return text;
 }
 
-function evalReplacement(fileContents: string, code: string): string {
-	const stringifiedContents = JSON.stringify({ fileContents: fileContents });
-	const fullCode = `let data = ${stringifiedContents}; function replace(text) { ${code} }; replace(data.fileContents);`
-	return eval(fullCode) + "";
+function evalReplacement(filePath: string, fileContents: string, code: string): string {
+	const stringifiedContents = JSON.stringify( { code: fileContents, ast: JSON.parse(sourceFileToAst(filePath, fileContents)) } );
+	const fullCode = `let data = ${stringifiedContents}; function replace(text, ast) { ${code} }; replace(data.code, data.ast);`
+	return eval(fullCode);
+}
+
+function evalReplacementToString(filePath: string, fileContents: string, code: string): string {
+	const result = evalReplacement(filePath, fileContents, code);
+	if (typeof result === "string") {
+		return result;
+	  } else {
+		return astToSourceFile(filePath, fileContents, result);
+	  }
+}
+
+function sourceFileToAst(filePath: string, fileContents: string): string {
+	try {
+		const project = new tsMorph.Project();
+		const source = project.createSourceFile(filePath, fileContents, { overwrite: true });
+		return JSON.stringify(source.getStructure(), null, "  ");
+	} catch (e) {
+		return e + "";
+	}
+}
+
+function astToSourceFile(filePath: string, originalFileContents: string, ast: tsMorph.SourceFileStructure): string {
+	try {
+		const project = new tsMorph.Project();
+		const originalSource = project.createSourceFile(filePath, originalFileContents, { overwrite: true });
+		originalSource.set(ast);
+		return originalSource.getFullText();
+	} catch (e) {
+		return e + "";
+	}
+}
+
+function transformFile(filePath: string, fileContents: string, code: string): IFileContents {
+	try {
+	  const result = evalReplacement(filePath, fileContents, code);
+	  if (typeof result === "string") {
+		return { code: result, ast: sourceFileToAst(filePath, result) };
+	  } else {
+		return { code: astToSourceFile(filePath, fileContents, result), ast: JSON.stringify(result, null, "  ") };
+	  }
+	} catch (e) {
+	  return { code: "" + e, ast: "" + e };
+	}
 }

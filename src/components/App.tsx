@@ -1,4 +1,4 @@
-import { Classes, InputGroup, Label, TextArea } from "@blueprintjs/core";
+import { Classes, InputGroup, Label, Tab, Tabs, TextArea } from "@blueprintjs/core";
 import { debounce } from "lodash-es";
 import * as React from 'react';
 import PanelGroup, { PanelWidth } from "react-panelgroup";
@@ -13,15 +13,20 @@ export interface IAppProps {
 }
 
 const DEFAULT_CODE = `
-let lines = text.split("\\n");
-lines = lines.map(line => {
-  if (line.indexOf("import") === -1) {
-    return line;
+// Example - transform AST
+ast.statements = ast.statements.map(s => {
+  if (s.kind === 14) {
+      return { ...s, moduleSpecifier: "another-package" };
   }
-
-  return line.toLowerCase();
+  return s;
 });
-return lines.filter(line => line !== undefined).join("\\n");
+return ast;
+
+// Example - transform code
+// let lines = text.split("\\n").map(
+//   line => line.indexOf("import") === -1 ? line : line.toLowerCase()
+// );
+// return lines.filter(line => line !== undefined).join("\\n");
 `;
 
 const DEFUALT_PATH_GLOB = "**/*.ts*";
@@ -52,6 +57,11 @@ const DEFAULT_STATE: IState = {
   }
 };
 
+interface IFileContents {
+  ast: string;
+  code: string;
+}
+
 // Matches vscode color
 // TODO: Import vscode library
 const DIVIDER_COLOR = "#424242";
@@ -64,7 +74,8 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
   const [searchText, setSearchText] = React.useState<string>(initialState.searchText);
   const [searchResults, setSearchResults] = React.useState<LoadState<string[]>>({ state: "loading" });
   const [selectedPath, setSelectedPath] = React.useState<string | undefined>(initialState.selectedPath);
-  const [fileContents, setFileContents] = React.useState<string | undefined>(undefined);
+  const [fileContents, setFileContents] = React.useState<IFileContents | undefined>(undefined);
+  const [transformedContents, setTransformedContents] = React.useState<IFileContents | undefined>(undefined);
   const [code, setCode] = React.useState<string>(initialState.code);
 
   React.useEffect(() => {
@@ -99,6 +110,19 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
     });
   }, []);
 
+  React.useEffect(debounce(() => {
+    if (selectedPath === undefined || fileContents === undefined) {
+      return;
+    }
+
+    vscode.postMessage({
+      command: "transform-file-contents",
+      path: selectedPath,
+      contents: fileContents.code,
+      code,
+    });
+  }, 100), [code, fileContents && fileContents.code, selectedPath]);
+
   React.useEffect(() => {
     window.addEventListener("message", handleReceiveMessage);
     return () => window.removeEventListener("message", handleReceiveMessage);
@@ -111,7 +135,10 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
           setSearchResults({ state: "loaded", value: message.searchResults });
           break;
         case "loaded-file-contents":
-          setFileContents(message.contents);
+          setFileContents({ code: message.contents, ast: message.ast });
+          break;
+        case "transformed-file-contents":
+          setTransformedContents(message.transformedContents);
           break;
     }
   };
@@ -146,7 +173,6 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
   const handleChangeCode = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     setCode(event.target.value);
   };
-
 
   const handleSelectFile = (path: string) => {
     setSelectedPath(path);
@@ -199,13 +225,19 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
                   <div className="file-contents-before">
                     <h3 className="panel-header">Before</h3>
                     <pre className="code-preview">
-                      <HighlightedCode code={fileContents || ""} filePath={selectedPath} />
+                      <Tabs>
+                        <Tab id="code" title="Code" panel={<HighlightedCode code={(fileContents && fileContents.code) || ""} filePath={selectedPath} />} />
+                        <Tab id="ast" title="AST" panel={<HighlightedCode code={(fileContents && fileContents.ast) || ""} filePath={".json"} />} />
+                      </Tabs>
                     </pre>
                   </div>
                   <div className="file-contents-after">
                     <h3 className="panel-header">After</h3>
                     <pre className="code-preview">
-                      <HighlightedCode code={fileContents && evalReplacement(fileContents, code)} filePath={selectedPath} />
+                    <Tabs>
+                        <Tab id="code" title="Code" panel={<HighlightedCode code={(transformedContents && transformedContents.code) || ""} filePath={selectedPath} />} />
+                        <Tab id="ast" title="AST" panel={<HighlightedCode code={(transformedContents && transformedContents.ast) || ""} filePath={".json"} />} />
+                      </Tabs>
                     </pre>
                   </div>
                 </PanelGroup>
@@ -223,14 +255,3 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
     </div>
   );
 };
-
-// TODO: Move this into the extension to dedup, and use message passing to get the transformed code
-function evalReplacement(fileContents: string, code: string) {
-  const stringifiedContents = JSON.stringify({ fileContents: fileContents });
-  const fullCode = `let data = ${stringifiedContents}; function replace(text) { ${code} }; replace(data.fileContents);`
-  try {
-    return eval(fullCode);
-  } catch (e) {
-    return "" + e;
-  }
-}
