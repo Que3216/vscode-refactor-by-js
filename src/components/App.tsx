@@ -1,4 +1,4 @@
-import { Classes, Colors, InputGroup, Label, TextArea } from "@blueprintjs/core";
+import { Classes, InputGroup, Label, TextArea } from "@blueprintjs/core";
 import { debounce } from "lodash-es";
 import * as React from 'react';
 import PanelGroup, { PanelWidth } from "react-panelgroup";
@@ -6,6 +6,7 @@ import { LoadState } from '../utils/LoadState';
 import { ActionButtons } from "./ActionButtons";
 import './app.css';
 import { FileList } from "./FileList";
+import { HighlightedCode } from "./HiglightedCode";
 
 export interface IAppProps {
   vscode: any;
@@ -76,7 +77,7 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
     });
   }, [pathGlob, searchText, selectedPath, code, layout])
 
-  React.useEffect(() => {
+  React.useEffect(() => {  
     if (initialState.selectedPath !== undefined && fileContents === undefined) {
       handleSelectFile(initialState.selectedPath);
     }
@@ -142,9 +143,9 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
     });
   };
 
-  const handleChangeCode = debounce((event: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleChangeCode = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     setCode(event.target.value);
-  }, 100);
+  };
 
 
   const handleSelectFile = (path: string) => {
@@ -198,13 +199,13 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
                   <div className="file-contents-before">
                     <h3 className="panel-header">Before</h3>
                     <pre className="code-preview">
-                      {fileContents}
+                      <HighlightedCode code={fileContents || ""} filePath={selectedPath} />
                     </pre>
                   </div>
                   <div className="file-contents-after">
                     <h3 className="panel-header">After</h3>
                     <pre className="code-preview">
-                      {fileContents && evalReplacement(fileContents, code)}
+                      <HighlightedCode code={fileContents && evalReplacement(fileContents, code)} filePath={selectedPath} />
                     </pre>
                   </div>
                 </PanelGroup>
@@ -223,6 +224,7 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
   );
 };
 
+// TODO: Move this into the extension to dedup, and use message passing to get the transformed code
 function evalReplacement(fileContents: string, code: string) {
   const stringifiedContents = JSON.stringify({ fileContents: fileContents });
   const fullCode = `let data = ${stringifiedContents}; function replace(text) { ${code} }; replace(data.fileContents);`
