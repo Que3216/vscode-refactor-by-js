@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import * as tsMorph from 'ts-morph'
+import { sourceFileToAst, astToSourceFile } from "./sourceFileToFromAst";
 
 export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('refactor-by-js.start', () => {
@@ -255,27 +255,6 @@ function evalReplacementToString(filePath: string, fileContents: string, code: s
 	  } else {
 		return astToSourceFile(filePath, fileContents, result);
 	  }
-}
-
-function sourceFileToAst(filePath: string, fileContents: string): string {
-	try {
-		const project = new tsMorph.Project();
-		const source = project.createSourceFile(filePath, fileContents, { overwrite: true });
-		return JSON.stringify(source.getStructure(), null, "  ");
-	} catch (e) {
-		return e + "";
-	}
-}
-
-function astToSourceFile(filePath: string, originalFileContents: string, ast: tsMorph.SourceFileStructure): string {
-	try {
-		const project = new tsMorph.Project();
-		const originalSource = project.createSourceFile(filePath, originalFileContents, { overwrite: true });
-		originalSource.set(ast);
-		return originalSource.getFullText();
-	} catch (e) {
-		return e + "";
-	}
 }
 
 function transformFile(filePath: string, fileContents: string, code: string): IFileContents {
