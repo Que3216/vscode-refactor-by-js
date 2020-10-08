@@ -25,6 +25,18 @@
   "categories": [
     "Other"
   ],
+  "keywords": [
+    "refactor",
+    "typescript",
+    "javascript",
+    "find",
+    "replace",
+    "bulk",
+    "scripting",
+    "ast",
+    "tsmorph",
+    "tsquery"
+  ],
   "dependencies": {
     "react": "^16.7.0",
     "react-dom": "^16.7.0",
