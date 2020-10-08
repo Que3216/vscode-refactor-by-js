@@ -1,0 +1,11 @@
+node_modules/**
+images/*-30-fps*
+images/*-code-10-fps*
+images/transform-ast-10-fps.gif
+src/**
+DEVELOPMENT_INSTRUCTIONS.node_modules
+tsconfig*
+tslint*
+yarn.lock
+webpack*
+ext-src/**
