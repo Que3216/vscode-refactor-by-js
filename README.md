@@ -4,11 +4,11 @@ Allows you to bulk refactor your code by writing javascript transformations that
 
 You can either write javascript that transforms the text:
 
-![Transforming the text/characters](images/transform-code-10-fps.gif)
+![Transforming the text/characters](images/transform-code-2-fps.gif)
 
 Or transforms the underlying abstract syntax tree:
 
-![Transforming the typescript AST](images/transform-ast-10-fps.gif)
+![Transforming the typescript AST](images/transform-ast-10-fps-min.gif)
 
 To run, open the command palette and execute the `Refactor by JS` command. 
 
