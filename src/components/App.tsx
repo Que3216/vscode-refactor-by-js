@@ -1,32 +1,32 @@
-import { Classes, InputGroup, Label, Tab, Tabs, TextArea } from "@blueprintjs/core";
-import { debounce } from "lodash-es";
+import { Classes, InputGroup, Label, TextArea } from "@blueprintjs/core";
 import * as React from 'react';
 import PanelGroup, { PanelWidth } from "react-panelgroup";
+import { IFileContents, IMode, ISelectedNode, ISelection, ISettings } from "../model/model";
+import { DIVIDER_COLOR } from "../utils/constants";
+import { useDebouncedEffect } from "../utils/hooks/useDebouncedEffect";
+import { useMessageListener } from "../utils/hooks/useMessageListener";
 import { LoadState } from '../utils/LoadState';
 import { ActionButtons } from "./ActionButtons";
 import './app.css';
+import { ExecutionPreview } from "./ExecutionPreview";
 import { FileList } from "./FileList";
-import { HighlightedCode } from "./HiglightedCode";
+import { SettingsBar } from "./SettingsBar";
 
 export interface IAppProps {
   vscode: any;
 }
 
 const DEFAULT_CODE = `
-// Example - transform AST
-ast.statements = ast.statements.map(s => {
-  if (s.kind === 14) {
-      return { ...s, moduleSpecifier: "another-package" };
-  }
-  return s;
-});
-return ast;
-
 // Example - transform code
-// let lines = text.split("\\n").map(
-//   line => line.indexOf("import") === -1 ? line : line.toLowerCase()
-// );
-// return lines.filter(line => line !== undefined).join("\\n");
+let lines = text.split("\\n").map(
+  line => line.indexOf("import") === -1 ? line : line.toLowerCase()
+);
+return lines.filter(line => line !== undefined).join("\\n");
+
+// Example - transform AST (switch the mode up top before uncommenting)
+// if (node.kindName === "ImportDeclaration") {
+//   return { ...node, moduleSpecifier: "another-package" };
+// }
 `;
 
 const DEFUALT_PATH_GLOB = "**/*.ts*";
@@ -37,6 +37,7 @@ interface IState {
   selectedPath: string | undefined;
   code: string;
   layout: Layout;
+  settings: ISettings;
 }
 
 interface Layout {
@@ -54,28 +55,9 @@ const DEFAULT_STATE: IState = {
     searchSidebarVsMainSplit: [{ size: 250 }, {}],
     codeVsResultsSplit: [{ size: 300 }, {}],
     beforeVsAfterSplit: [],
-  }
+  },
+  settings: { mode: IMode.TransformCode },
 };
-
-interface IFileContents {
-  ast: string;
-  code: string;
-}
-
-interface ISelection {
-  start: number | undefined;
-  end: number | undefined;
-}
-
-interface ISelectedNode {
-  inputNodeJson: string;
-  outputNodeJson: string;
-}
-
-
-// Matches vscode color
-// TODO: Import vscode library
-const DIVIDER_COLOR = "#424242";
 
 export const App: React.FC<IAppProps> = ({ vscode }) => {
   const savedState = vscode.getState() as (IState | undefined);
@@ -90,6 +72,7 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
   const [selectedNode, setSelectedNode] = React.useState<ISelectedNode | undefined>(undefined);
   const [code, setCode] = React.useState<string>(initialState.code);
   const [selection, setSelection] = React.useState<ISelection>({ start: undefined, end: undefined });
+  const [settings, setSettings] = React.useState<ISettings>(initialState.settings);
 
   React.useEffect(() => {
     vscode.setState({
@@ -98,8 +81,9 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
       selectedPath,
       code,
       layout,
+      settings,
     });
-  }, [pathGlob, searchText, selectedPath, code, layout])
+  }, [pathGlob, searchText, selectedPath, code, layout, settings])
 
   React.useEffect(() => {  
     if (initialState.selectedPath !== undefined && fileContents === undefined) {
@@ -107,13 +91,13 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
     }
   }, []);
 
-  React.useEffect(debounce(() => {
+  useDebouncedEffect(() => {
     vscode.postMessage({
       command: "search-text-changed",
       pathGlob,
       searchText,
     });
-  }, 1000), [searchText, pathGlob]);
+  }, 750, [searchText, pathGlob]);
 
   React.useEffect(() => {
     vscode.postMessage({
@@ -123,7 +107,7 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
     });
   }, []);
 
-  React.useEffect(debounce(() => {
+  useDebouncedEffect(() => {
     if (selectedPath === undefined || fileContents === undefined) {
       return;
     }
@@ -132,12 +116,13 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
       command: "transform-file-contents",
       path: selectedPath,
       contents: fileContents.code,
+      mode: settings.mode,
       code,
     });
-  }, 100), [code, fileContents && fileContents.code, selectedPath]);
+  }, 100, [code, fileContents && fileContents.code, selectedPath, settings.mode]);
 
-  React.useEffect(debounce(() => {
-    if (selectedPath === undefined || fileContents === undefined || selection.start === undefined) {
+  useDebouncedEffect(() => {
+    if (selectedPath === undefined || fileContents === undefined || selection.start === undefined || settings.mode !== IMode.TransformAST) {
       setSelectedNode(undefined);
       return;
     }
@@ -149,15 +134,9 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
       code,
       selection,
     });
-  }, 100), [code, selection, fileContents && fileContents.code, selectedPath]);
+  }, 100, [code, selection, fileContents && fileContents.code, selectedPath]);
 
-  React.useEffect(() => {
-    window.addEventListener("message", handleReceiveMessage);
-    return () => window.removeEventListener("message", handleReceiveMessage);
-  }, []);
-
-  const handleReceiveMessage = (event: any) => {
-    const message = event.data; // The json data that the extension sent
+  useMessageListener((message: any) => {
     switch (message.command) {
         case "new-search-results":
           setSearchResults({ state: "loaded", value: message.searchResults });
@@ -172,7 +151,7 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
           setSelectedNode(message.selectedNode);
           break;
     }
-  };
+  });
 
   const handleChangePathGlob = (event: React.ChangeEvent<HTMLInputElement>) => {
     setPathGlob(event.target.value)
@@ -189,6 +168,7 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
     vscode.postMessage({
         command: "replace-all",
         paths: searchResults.value,
+        mode: settings.mode,
         code,
     });
   };
@@ -197,16 +177,13 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
     vscode.postMessage({
         command: "replace-all",
         paths: [selectedPath],
+        mode: settings.mode,
         code,
     });
   };
 
   const handleChangeCode = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     setCode(event.target.value);
-  };
-
-  const handleChangeSelection = (start: number | undefined, end: number | undefined) => {
-    setSelection({ start, end });
   };
 
   const handleSelectFile = (path: string) => {
@@ -248,42 +225,26 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
             panelWidths={layout.codeVsResultsSplit}
             onUpdate={widths => setLayout({ ...layout, codeVsResultsSplit: widths as PanelWidth[] })}
           >
-            <TextArea className="code" onChange={handleChangeCode} value={code} />
+            <div className="code-and-settings-row">
+              <SettingsBar
+                settings={settings}
+                onChangeSettings={setSettings}
+                onSelectExample={setCode}
+              />
+              <TextArea className="code" onChange={handleChangeCode} value={code} />
+            </div>
             <div className="preview-and-execute-row">
-              <div className="previews">
-                <PanelGroup
-                  direction="row"
-                  borderColor={DIVIDER_COLOR}
-                  panelWidths={layout.beforeVsAfterSplit}
-                  onUpdate={widths => setLayout({ ...layout, beforeVsAfterSplit: widths as PanelWidth[] })}
-                >
-                  <div className="file-contents-before">
-                    <h3 className="panel-header">Before</h3>
-                    <pre className="code-preview">
-                      <Tabs>
-                        <Tab id="code" title="Code" panel={
-                          <HighlightedCode
-                            code={(fileContents && fileContents.code) || ""}
-                            filePath={selectedPath}
-                            onChangeSelection={handleChangeSelection}
-                          />}
-                        />
-                        <Tab id="ast" title="AST" panel={<HighlightedCode code={(fileContents && fileContents.ast) || ""} filePath={".json"} />} />
-                      </Tabs>
-                    </pre>
-                  </div>
-                  <div className="file-contents-after">
-                    <h3 className="panel-header">After</h3>
-                    <pre className="code-preview">
-                    <Tabs>
-                        <Tab id="code" title="Code" panel={<HighlightedCode code={(transformedContents && transformedContents.code) || ""} filePath={selectedPath} />} />
-                        <Tab id="ast" title="AST" panel={<HighlightedCode code={(transformedContents && transformedContents.ast) || ""} filePath={".json"} />} />
-                        <Tab id="selected-node" title="Selected Node" panel={<HighlightedCode code={getSelectedNodeText(selection, selectedNode)} filePath={".json"} />} />
-                      </Tabs>
-                    </pre>
-                  </div>
-                </PanelGroup>
-              </div>
+              <ExecutionPreview
+                inputFilePath={selectedPath}
+                inputFileContents={fileContents}
+                outputFileContents={transformedContents}
+                selectedNode={selectedNode}
+                selection={selection}
+                beforeVsAfterSplit={layout.beforeVsAfterSplit}
+                mode={settings.mode}
+                onChangeSelection={setSelection}
+                onChangeBeforeVsAfterSplit={beforeVsAfterSplit => setLayout({ ...layout, beforeVsAfterSplit })}
+              />
               <ActionButtons
                 selectedPath={selectedPath}
                 numSearchResults={searchResults.state === "loading" ? 0 : searchResults.value.length}
@@ -297,13 +258,3 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
     </div>
   );
 };
-
-function getSelectedNodeText(selection: ISelection, selectedNode: ISelectedNode | undefined) {
-  if (selection.start === undefined) {
-    return "// Drag to select a node on the left";
-  }
-  if (selectedNode === undefined) {
-    return `// Transforming node at ${selection.start} to ${selection.end === undefined ? selection.start : selection.end}. Please wait...`;
-  }
-  return `// Input\n// -----\n${selectedNode.inputNodeJson}\n\n// Output\n// -----\n${selectedNode.outputNodeJson}`;
-}

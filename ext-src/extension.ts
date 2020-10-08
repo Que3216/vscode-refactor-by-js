@@ -1,7 +1,8 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import * as tsMorph from 'ts-morph'
+import { transformFile, transformFileForPreview, transformSelectedNode } from './transform/transformFile';
+import { sourceFileToAst } from './sourceFileToAst';
 
 export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('refactor-by-js.start', () => {
@@ -17,21 +18,6 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 		});
 	}
-}
-
-interface IFileContents {
-	ast: string;
-	code: string;
-}
-
-interface ISelection {
-  start: number;
-  end: number | undefined;
-}
-
-interface ISelectedNode {
-  inputNodeJson: string;
-  outputNodeJson: string;
 }
 
 /**
@@ -118,7 +104,7 @@ class RefactorByJsPanel {
 						path: message.path,
 						contents: message.contents,
 						code: message.code,
-						transformedContents: transformFile(message.path, message.contents, message.code),
+						transformedContents: transformFileForPreview(message.path, message.contents, message.code, message.mode),
 					});
 					return;
 				case 'transform-selected-node':
@@ -145,7 +131,7 @@ class RefactorByJsPanel {
 								const fileUri = vscode.Uri.file(path);
 								const encodedContents = await vscode.workspace.fs.readFile(fileUri);
 								const decodedContents = new TextDecoder("utf-8").decode(encodedContents);
-								const updatedContents = evalReplacementToString(path, decodedContents, message.code);
+								const updatedContents = transformFile(path, decodedContents, message.code, message.mode);
 								if (updatedContents !== decodedContents) {
 									await vscode.workspace.fs.writeFile(fileUri, new TextEncoder().encode(updatedContents));
 								}
@@ -261,197 +247,3 @@ function getNonce() {
 	}
 	return text;
 }
-
-function evalReplacement(filePath: string, fileContents: string, code: string): string {
-	const stringifiedContents = JSON.stringify( { code: fileContents, ast: JSON.parse(sourceFileToAst(filePath, fileContents)) } );
-	const fullCode = `let data = ${stringifiedContents}; function replace(text, ast) { ${code} }; replace(data.code, data.ast);`
-	return eval(fullCode);
-}
-
-function evalReplacementToString(filePath: string, fileContents: string, code: string): string {
-	const result = evalReplacement(filePath, fileContents, code);
-	if (typeof result === "string") {
-		return result;
-	  } else {
-		return astToSourceFile(filePath, fileContents, result);
-	  }
-}
-
-function sourceFileToAst(filePath: string, fileContents: string): string {
-	try {
-		const project = new tsMorph.Project();
-		const source = project.createSourceFile(filePath, fileContents, { overwrite: true });
-		return JSON.stringify(source.getStructure(), null, "  ");
-	} catch (e) {
-		return e + "";
-	}
-}
-
-function astToSourceFile(filePath: string, originalFileContents: string, ast: tsMorph.SourceFileStructure): string {
-	try {
-		const project = new tsMorph.Project();
-		const originalSource = project.createSourceFile(filePath, originalFileContents, { overwrite: true });
-		originalSource.set(ast);
-		return originalSource.getFullText();
-	} catch (e) {
-		return e + "";
-	}
-}
-
-function evalTransform(node: any, code: string): any {
-	try {
-		const stringifiedContents = JSON.stringify( { node } );
-		const fullCode = `let data = ${stringifiedContents}; function replace(node) { ${code} }; replace(data.node);`
-		return eval(fullCode);
-	} catch (e) {
-		return node;
-	}
-}
-
-
-function transformFile(filePath: string, fileContents: string, code: string): IFileContents {
-	try {
-		const project = new tsMorph.Project();
-		const originalSource = project.createSourceFile(filePath, fileContents, { overwrite: true });
-
-		originalSource.forEachDescendantAsArray().forEach((node) => {
-			if (node.wasForgotten()) {
-				return;
-			}
-			// const newText = evalTransform(node.getFullText(), code);
-			// if (newText && newText !== node.getFullText()) {
-			// 	node.replaceWithText(newText);
-			// 	// t.skip();
-			// }
-
-			transformNode(node, code);
-		});
-
-		// originalSource.transform(traversal => {
-		// 	const node = tsMorph.createWrappedNode(traversal.visitChildren());
-
-
-
-		// 	// if ((node as any)["getStructure"] !== undefined && (node as any)["set"] !== undefined) {
-		// 	// 	const oldStructure = (node as any)["getStructure"]();
-		// 	// 	const newStructure = evalTransform((node as any)["getStructure"](), code);
-		// 	// 	if (!isEqual(oldStructure, newStructure)) {
-		// 	// 		(node as any)["set"](newStructure);
-		// 	// 	}
-		// 	// } else {
-		// 	// 	const newText = evalTransform(node.getFullText(), code);
-		// 	// 	if (newText !== node.getFullText()) {
-		// 	// 		node.replaceWithText(newText);
-		// 	// 	}
-		// 	// }
-
-		// 	return node.compilerNode;
-		// });
-
-		return { code: originalSource.getFullText(), ast: sourceFileToAst(filePath, originalSource.getFullText()) };
-	} catch (e) {
-		return { code: "" + e, ast: "" + e };
-	}
-
-	// try {
-	//   const result = evalReplacement(filePath, fileContents, code);
-	//   if (typeof result === "string") {
-	// 	return { code: result, ast: sourceFileToAst(filePath, result) };
-	//   } else {
-	// 	return { code: astToSourceFile(filePath, fileContents, result), ast: JSON.stringify(result, null, "  ") };
-	//   }
-	// } catch (e) {
-	//   return { code: "" + e, ast: "" + e };
-	// }
-}
-
-function transformNode(node: tsMorph.Node<tsMorph.ts.Node>, code: string): void {
-	const structure = getStructure(node);
-	const set = (node as any)["set"];
-
-	if (structure !== undefined && set !== undefined) {
-		const newStructure = evalTransform(serializeNode(node), code);
-		if (newStructure) {
-			set.bind(node)(newStructure);
-		}
-	} else {
-		const newText = evalTransform(serializeNode(node), code);
-		if (newText && newText.fullText) {
-			node.replaceWithText(newText.fullText);
-		}
-	}
-}
-
-function transformSelectedNode(filePath: string, fileContents: string, code: string, selection: ISelection): ISelectedNode {
-	try {
-		const selectedNode = getSelectedNode(filePath, fileContents, selection);
-		const inputNodeJson = JSON.stringify(serializeNode(selectedNode), null, "  ");
-		transformNode(selectedNode, code);
-		const outputNodeJson = JSON.stringify(serializeNode(selectedNode), null, "  ");
-		return { inputNodeJson, outputNodeJson };
-	} catch (e) {
-		return { inputNodeJson: "" + e, outputNodeJson: "" + e };
-	}
-}
-
-function serializeNode(node: tsMorph.Node<tsMorph.ts.Node>): any {
-	const structure = getStructure(node);
-
-	if (structure !== undefined) {
-		return structure;
-	} else {
-		return { kindName: node.getKindName(), fullText: node.getFullText(), readonly: { text: node.getText() } };
-	}
-}
-
-function getStructure(node: tsMorph.Node<tsMorph.ts.Node>): any | undefined {
-	const getStructure = (node as any)["getStructure"];
-
-	if (getStructure !== undefined) {
-		return { ...getStructure.bind(node)(), kindName: node.getKindName() };
-	} else {
-		return undefined;
-	}
-}
-
-function getSelectedNode(filePath: string, fileContents: string, selection: ISelection): tsMorph.Node<tsMorph.ts.Node> {
-	const project = new tsMorph.Project();
-	const originalSource = project.createSourceFile(filePath, fileContents, { overwrite: true });
-	const startNode = originalSource.getDescendantAtPos(selection.start);
-	const endNode = selection.end === undefined ? undefined : originalSource.getDescendantAtPos(selection.end);
-
-	if (startNode === undefined) {
-		throw new Error("Could not find node at position " + selection.start);
-	}
-
-	if (endNode === undefined) {
-		return startNode;
-	}
-
-	const startNodeParents = new Set([startNode, ...getParents(startNode)]);
-	let firstCommonParent = endNode;
-	while (firstCommonParent.getParent() !== undefined && !startNodeParents.has(firstCommonParent)) {
-		firstCommonParent = firstCommonParent.getParent()!; // should be defined, since checked in while loop clause
-	}
-	return firstCommonParent;
-}
-
-function getParents(node: tsMorph.Node<tsMorph.ts.Node>): Array<tsMorph.Node<tsMorph.ts.Node>> {
-	const parents: Array<tsMorph.Node<tsMorph.ts.Node>> = [];
-	while (node.getParent() !== undefined) {
-		node = node.getParent()!; // should be defined, since checked in while loop clause
-		parents.push(node);
-	}
-	return parents;
-}
-
-// New plan:
-//  Have user write function that is mapped over every node
-//  If it returns identity then don't transform that node
-//  If you click on a node, then it previews input & output of your function for that node
-//  Input to function is text + structure (if structure exists), output can be text or structure
-//  We slowly extend to support more and more structures (expressions etc.)
-
-
-// Or...
-// Run tsMorph inside the webview, so give eval full access to it + it's methods (e.g. add import etc.)

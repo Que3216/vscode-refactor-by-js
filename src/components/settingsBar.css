@@ -1,0 +1,19 @@
+.settings-bar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin-right: 10px;
+}
+
+.settings-bar select {
+    border-radius: 0 !important;
+    font-size: 12px !important;
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+}
+
+.settings-bar .mode-label {
+    margin: 5px !important;
+    margin-left: 10px;
+    flex-grow: 1;
+}

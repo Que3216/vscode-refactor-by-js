@@ -32,7 +32,6 @@ export const HighlightedCode: React.FC<IHighlightedCode> = ({ code, filePath, on
     }
     const selection = document.getSelection();
     if (selection === undefined || selection === null) {
-        onChangeSelection(undefined, undefined);
         return;
     }
     const range = selection.getRangeAt(0);
@@ -44,7 +43,9 @@ export const HighlightedCode: React.FC<IHighlightedCode> = ({ code, filePath, on
     clonedRange.selectNodeContents(codeEl.current);
     clonedRange.setEnd(range.endContainer, range.endOffset);
     const end = clonedRange.toString().length;
-    onChangeSelection(start, end);
+    if ((start > 0 || end > 0) && (start < code.length)) {
+      onChangeSelection(start, end);
+    }
   };
 
   return (
