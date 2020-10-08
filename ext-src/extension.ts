@@ -204,7 +204,7 @@ class RefactorByJsPanel {
 	}
 
 	private _getHtmlForWebview() {
-		const manifest = require(path.join(this._extensionPath, 'build', 'asset-manifest.json'));
+		const manifest = JSON.parse(fs.readFileSync(path.join(this._extensionPath, 'build', 'asset-manifest.json'), "utf-8"));
 		const mainScript = manifest['main.js'];
 		const mainStyle = manifest['main.css'];
 

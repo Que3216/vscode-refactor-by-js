@@ -10,7 +10,7 @@ const config = {
 
   entry: './ext-src/extension.ts', 
   output: {
-    path: path.resolve(__dirname, 'bundled'),
+    path: path.resolve(__dirname, 'build'),
     filename: 'extension.js',
     libraryTarget: 'commonjs2',
     devtoolModuleFilenameTemplate: '../[resource-path]'

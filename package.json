@@ -16,7 +16,7 @@
     "onCommand:vscode-refactor-by-js.start",
     "onWebviewPanel:vscode-refactor-by-js"
   ],
-  "main": "./bundled/extension.js",
+  "main": "./build/extension.js",
   "contributes": {
     "commands": [
       {
