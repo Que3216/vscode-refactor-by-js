@@ -3,9 +3,13 @@ images/*-30-fps*
 images/*-code-10-fps*
 images/transform-ast-10-fps.gif
 src/**
-DEVELOPMENT_INSTRUCTIONS.node_modules
+DEVELOPMENT_INSTRUCTIONS.md
 tsconfig*
 tslint*
 yarn.lock
 webpack*
 ext-src/**
+
+# typescript is required by ts-morph
+!node_modules/typescript
+!node_modules/typescript/**
