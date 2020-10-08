@@ -1,7 +1,7 @@
 {
   "name": "vscode-refactor-by-js",
   "description": "Write javascript functions to bulk refactor your source code, with live preview.",
-  "version": "0.0.1",
+  "version": "0.0.2",
 	"engines": {
 		"vscode": "^1.47.0"
 	},
