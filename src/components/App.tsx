@@ -62,6 +62,17 @@ interface IFileContents {
   code: string;
 }
 
+interface ISelection {
+  start: number | undefined;
+  end: number | undefined;
+}
+
+interface ISelectedNode {
+  inputNodeJson: string;
+  outputNodeJson: string;
+}
+
+
 // Matches vscode color
 // TODO: Import vscode library
 const DIVIDER_COLOR = "#424242";
@@ -76,7 +87,9 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
   const [selectedPath, setSelectedPath] = React.useState<string | undefined>(initialState.selectedPath);
   const [fileContents, setFileContents] = React.useState<IFileContents | undefined>(undefined);
   const [transformedContents, setTransformedContents] = React.useState<IFileContents | undefined>(undefined);
+  const [selectedNode, setSelectedNode] = React.useState<ISelectedNode | undefined>(undefined);
   const [code, setCode] = React.useState<string>(initialState.code);
+  const [selection, setSelection] = React.useState<ISelection>({ start: undefined, end: undefined });
 
   React.useEffect(() => {
     vscode.setState({
@@ -123,6 +136,21 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
     });
   }, 100), [code, fileContents && fileContents.code, selectedPath]);
 
+  React.useEffect(debounce(() => {
+    if (selectedPath === undefined || fileContents === undefined || selection.start === undefined) {
+      setSelectedNode(undefined);
+      return;
+    }
+
+    vscode.postMessage({
+      command: "transform-selected-node",
+      path: selectedPath,
+      contents: fileContents.code,
+      code,
+      selection,
+    });
+  }, 100), [code, selection, fileContents && fileContents.code, selectedPath]);
+
   React.useEffect(() => {
     window.addEventListener("message", handleReceiveMessage);
     return () => window.removeEventListener("message", handleReceiveMessage);
@@ -139,6 +167,9 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
           break;
         case "transformed-file-contents":
           setTransformedContents(message.transformedContents);
+          break;
+        case "transformed-selected-node":
+          setSelectedNode(message.selectedNode);
           break;
     }
   };
@@ -172,6 +203,10 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
 
   const handleChangeCode = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     setCode(event.target.value);
+  };
+
+  const handleChangeSelection = (start: number | undefined, end: number | undefined) => {
+    setSelection({ start, end });
   };
 
   const handleSelectFile = (path: string) => {
@@ -226,7 +261,13 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
                     <h3 className="panel-header">Before</h3>
                     <pre className="code-preview">
                       <Tabs>
-                        <Tab id="code" title="Code" panel={<HighlightedCode code={(fileContents && fileContents.code) || ""} filePath={selectedPath} />} />
+                        <Tab id="code" title="Code" panel={
+                          <HighlightedCode
+                            code={(fileContents && fileContents.code) || ""}
+                            filePath={selectedPath}
+                            onChangeSelection={handleChangeSelection}
+                          />}
+                        />
                         <Tab id="ast" title="AST" panel={<HighlightedCode code={(fileContents && fileContents.ast) || ""} filePath={".json"} />} />
                       </Tabs>
                     </pre>
@@ -237,6 +278,7 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
                     <Tabs>
                         <Tab id="code" title="Code" panel={<HighlightedCode code={(transformedContents && transformedContents.code) || ""} filePath={selectedPath} />} />
                         <Tab id="ast" title="AST" panel={<HighlightedCode code={(transformedContents && transformedContents.ast) || ""} filePath={".json"} />} />
+                        <Tab id="selected-node" title="Selected Node" panel={<HighlightedCode code={getSelectedNodeText(selection, selectedNode)} filePath={".json"} />} />
                       </Tabs>
                     </pre>
                   </div>
@@ -255,3 +297,13 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
     </div>
   );
 };
+
+function getSelectedNodeText(selection: ISelection, selectedNode: ISelectedNode | undefined) {
+  if (selection.start === undefined) {
+    return "// Drag to select a node on the left";
+  }
+  if (selectedNode === undefined) {
+    return `// Transforming node at ${selection.start} to ${selection.end === undefined ? selection.start : selection.end}. Please wait...`;
+  }
+  return `// Input\n// -----\n${selectedNode.inputNodeJson}\n\n// Output\n// -----\n${selectedNode.outputNodeJson}`;
+}
