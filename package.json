@@ -3,7 +3,7 @@
   "displayName": "Refactor by JS",
   "description": "Write javascript functions to bulk refactor your source code, with live preview.",
   "icon": "images/ts-logo.png",
-  "version": "0.0.3",
+  "version": "0.0.4",
 	"engines": {
 		"vscode": "^1.47.0"
 	},
@@ -13,14 +13,14 @@
     "url": "https://github.com/Que3216/vscode-refactor-by-js.git"
   },
   "activationEvents": [
-    "onCommand:refactor-by-js.start",
-    "onWebviewPanel:refactor-by-js"
+    "onCommand:vscode-refactor-by-js.start",
+    "onWebviewPanel:vscode-refactor-by-js"
   ],
   "main": "./build/ext-src/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "refactor-by-js.start",
+        "command": "vscode-refactor-by-js.start",
         "title": "Refactor by JS"
       }
     ]

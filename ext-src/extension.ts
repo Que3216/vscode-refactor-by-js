@@ -5,10 +5,9 @@ import { transformFile, transformFileForPreview, transformSelectedNode } from '.
 import { sourceFileToAst } from './sourceFileToAst';
 
 export function activate(context: vscode.ExtensionContext) {
-	context.subscriptions.push(vscode.commands.registerCommand('refactor-by-js.start', () => {
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-refactor-by-js.start', () => {
 		RefactorByJsPanel.createOrShow(context.extensionPath);
 	}));
-
 
 	if (vscode.window.registerWebviewPanelSerializer) {
 		// Make sure we register a serializer in activation event
@@ -29,7 +28,7 @@ class RefactorByJsPanel {
 	 */
 	public static currentPanel: RefactorByJsPanel | undefined;
 
-	public static readonly viewType = 'refactor-by-js';
+	public static readonly viewType = 'vscode-refactor-by-js';
 
 	private readonly _panel: vscode.WebviewPanel;
 	private readonly _extensionPath: string;
