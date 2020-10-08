@@ -9,12 +9,14 @@ export interface IFileListProps {
   onSelectFile: (filePath: string) => void;
 }
 
+const MAX_FILES = 1000;
+
 export const FileList: React.FC<IFileListProps> = ({ filePaths, selectedFilePath, onSelectFile }) => {
     if (filePaths.state === "loading") {
         return <FileListSkeleton />;
     }
 
-    const files = filePaths.value.map(path => (
+    const files = limitMaxFiles(filePaths.value).map(path => (
         <MenuItem
             text={shortenPath(path)}
             title={path}
@@ -22,7 +24,10 @@ export const FileList: React.FC<IFileListProps> = ({ filePaths, selectedFilePath
             active={path === selectedFilePath}
         />
     ));
-    return <Menu className="file-list">{files}</Menu>;
+    return <Menu className="file-list">
+      {files}
+      {filePaths.value.length > MAX_FILES ? <MenuItem text="More files not shown..." /> : undefined}
+    </Menu>;
 };
 
 
@@ -39,4 +44,11 @@ function shortenPath(path: string) {
     return "..." + path.substr(-30);
   }
   return path;
+}
+
+function limitMaxFiles(files: string[]) {
+  if (files.length <= MAX_FILES) {
+      return files;
+  }
+  return [...files].splice(0, MAX_FILES);
 }

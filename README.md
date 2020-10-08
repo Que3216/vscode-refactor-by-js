@@ -1,8 +1,18 @@
 # Refactor by JS
 
-An editor embedded in vscode for running javascript transformations in bulk over source files, with a live preview of the transformation result. Useful for complex refactors across large codebases.
+Allows you to bulk refactor your code by writing javascript transformations that run over your source code, with a live preview of the results.
 
-## Development
+You can either write javascript that transforms the text:
+
+![Transforming the text/characters](images/transform-code-10-fps.gif)
+
+Or transforms the underlying abstract syntax tree:
+
+![Transforming the typescript AST](images/transform-ast-10-fps.gif)
+
+To run, open the command palette and execute the `Refactor by JS` command. 
+
+#### Development
 
 Run:
 

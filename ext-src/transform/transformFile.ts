@@ -41,8 +41,9 @@ export function transformFile(filePath: string, fileContents: string, code: stri
 		transformNode(node, code, filePath);
 	});
 
-	if (originalSource.getFullText() === fileContents || !isPostProcessingEnabled(settings.postProcessing)) {
-		return fileContents;
+	const updatedSource = originalSource.getFullText();
+	if (updatedSource === fileContents || !isPostProcessingEnabled(settings.postProcessing)) {
+		return updatedSource;
 	}
 
 	applyPostProcessing(originalSource, settings.postProcessing);

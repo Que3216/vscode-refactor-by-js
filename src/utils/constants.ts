@@ -31,7 +31,7 @@ function addImport(name, module) {
         if (line.startsWith("import ")) {
             seenImports = true;
         } else if (seenImports && !addedImport && line === "") {
-            newLines.push(\`import { ${name} } from "${module}";\`);
+            newLines.push(\`import { \${name} } from "\${module}";\`);
             addedImport = true;
         }
         newLines.push(line);

@@ -29,7 +29,7 @@ return lines.filter(line => line !== undefined).join("\\n");
 // }
 `;
 
-const DEFUALT_PATH_GLOB = "**/*.ts*";
+const DEFUALT_PATH_GLOB = "{**/*.ts,**/*.tsx}";
 
 interface IState {
   pathGlob: string;

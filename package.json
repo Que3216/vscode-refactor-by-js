@@ -5,6 +5,10 @@
 		"vscode": "^1.47.0"
 	},
   "publisher": "q",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Que3216/vscode-refactor-by-js.git"
+  },
   "activationEvents": [
     "onCommand:refactor-by-js.start",
     "onWebviewPanel:refactor-by-js"
@@ -18,6 +22,9 @@
       }
     ]
   },
+  "categories": [
+    "Other"
+  ],
   "dependencies": {
     "react": "^16.7.0",
     "react-dom": "^16.7.0",
