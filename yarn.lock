@@ -1406,11 +1406,6 @@
   resolved "https://registry.yarnpkg.com/@types/tapable/-/tapable-1.0.2.tgz#e13182e1b69871a422d7863e11a4a6f5b814a4bd"
   integrity sha512-42zEJkBpNfMEAvWR5WlwtTH22oDzcMjFsL9gDGExwF8X8WvAiw7Vwop7hPw03QT8TKfec83LwbHj6SvpqM4ELQ==
 
-"@types/vscode@^1.47.0":
-  version "1.49.0"
-  resolved "https://registry.yarnpkg.com/@types/vscode/-/vscode-1.49.0.tgz#f3731d97d7e8b2697510eb26f6e6d04ee8c17352"
-  integrity sha512-wfNQmLmm1VdMBr6iuNdprWmC1YdrgZ9dQzadv+l2eSjJlElOdJw8OTm4RU4oGTBcfvG6RZI2jOcppkdSS18mZw==
-
 "@webassemblyjs/ast@1.7.11":
   version "1.7.11"
   resolved "https://registry.yarnpkg.com/@webassemblyjs/ast/-/ast-1.7.11.tgz#b988582cafbb2b095e8b556526f30c90d057cace"
