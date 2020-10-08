@@ -1,6 +1,7 @@
 
 import * as tsMorph from 'ts-morph';
 import { isDeepEqual } from './deepEqual';
+import { findPathToPackageRoot } from './findPathToPackageRoot';
 
 export function transformNode(node: tsMorph.Node<tsMorph.ts.Node>, code: string, path: string): void {
 	const set = (node as any)["set"];
@@ -32,8 +33,8 @@ export function transformNode(node: tsMorph.Node<tsMorph.ts.Node>, code: string,
 }
 
 function evalTransformNode(node: any, code: string, path: string): any {
-	const stringifiedContents = JSON.stringify( { node, path } );
-	const fullCode = `let data = ${stringifiedContents}; function replace(node, path) { ${code} }; replace(data.node, data.path);`
+	const stringifiedContents = JSON.stringify( { node, path, pathToPackageRoot: findPathToPackageRoot(path) } );
+	const fullCode = `let data = ${stringifiedContents}; function replace(node, path, pathToPackageRoot) { ${code} }; replace(data.node, data.path, data.pathToPackageRoot);`
 	return eval(fullCode);
 }
 

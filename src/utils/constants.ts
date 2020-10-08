@@ -10,14 +10,40 @@ export interface IExample {
     code: string;
 }
 
-
-
 export const EXAMPLES = [
+{
+    name: "Available varialbes",
+    mode: IMode.TransformCode,
+    code: `return JSON.stringify({ text, path, pathToPackageRoot }, null, "  ");`,
+},
+{
+    name: "Add import",
+    mode: IMode.TransformCode,
+    code: `
+return addImport("myObject", pathToPackageRoot + "/myFile.ts");
+
+function addImport(name, module) {
+    const lines = text.split("\\n");
+    const newLines = [];
+    let seenImports = false;
+    let addedImport = false;
+    lines.forEach(line => {
+        if (line.startsWith("import ")) {
+            seenImports = true;
+        } else if (seenImports && !addedImport && line === "") {
+            newLines.push(\`import { ${name} } from "${module}";\`);
+            addedImport = true;
+        }
+        newLines.push(line);
+    });
+    return newLines.join("\\n");
+}`,
+},
 {
     name: "Rename package",
     mode: IMode.TransformAST,
     code: `
-return renamePackage("../toPending", "pending");
+return renamePackage("@package/old", "@package/new");
 
 function renamePackage(oldName, newName) {
     if (node.kindName !== "ImportDeclaration" || node.moduleSpecifier !== oldName) {

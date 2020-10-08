@@ -20,6 +20,14 @@ export const IMode = {
   TransformAST: "transform-ast" as "transform-ast"
 };
 
+export interface IPostProcessingSettings {
+  fixMissingImports: boolean;
+  fixUnusedIdentifiers: boolean;
+  organizeImports: boolean;
+  formatCode: boolean;
+}
+
 export interface ISettings {
   mode: IMode;
+  postProcessing: IPostProcessingSettings;
 }

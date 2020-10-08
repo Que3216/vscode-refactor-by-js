@@ -20,3 +20,15 @@ export interface ISelectedNode {
   inputNodeJson: string;
   outputNodeJson: string;
 }
+
+export interface IPostProcessingSettings {
+  fixMissingImports: boolean;
+  fixUnusedIdentifiers: boolean;
+  organizeImports: boolean;
+  formatCode: boolean;
+}
+
+export interface ISettings {
+  mode: IMode;
+  postProcessing: IPostProcessingSettings;
+}

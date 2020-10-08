@@ -1,4 +1,4 @@
-import { Classes, InputGroup, Label, TextArea } from "@blueprintjs/core";
+import { Classes, InputGroup, Label, NonIdealState, TextArea } from "@blueprintjs/core";
 import * as React from 'react';
 import PanelGroup, { PanelWidth } from "react-panelgroup";
 import { IFileContents, IMode, ISelectedNode, ISelection, ISettings } from "../model/model";
@@ -56,7 +56,15 @@ const DEFAULT_STATE: IState = {
     codeVsResultsSplit: [{ size: 300 }, {}],
     beforeVsAfterSplit: [],
   },
-  settings: { mode: IMode.TransformCode },
+  settings: {
+    mode: IMode.TransformCode,
+    postProcessing: {
+      fixMissingImports: false,
+      fixUnusedIdentifiers: false,
+      organizeImports: false,
+      formatCode: false,
+    }
+  },
 };
 
 export const App: React.FC<IAppProps> = ({ vscode }) => {
@@ -116,10 +124,10 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
       command: "transform-file-contents",
       path: selectedPath,
       contents: fileContents.code,
-      mode: settings.mode,
+      settings,
       code,
     });
-  }, 100, [code, fileContents && fileContents.code, selectedPath, settings.mode]);
+  }, 100, [code, fileContents && fileContents.code, selectedPath, settings]);
 
   useDebouncedEffect(() => {
     if (selectedPath === undefined || fileContents === undefined || selection.start === undefined || settings.mode !== IMode.TransformAST) {
@@ -134,7 +142,7 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
       code,
       selection,
     });
-  }, 100, [code, selection, fileContents && fileContents.code, selectedPath]);
+  }, 100, [code, selection, fileContents && fileContents.code, selectedPath, settings.mode]);
 
   useMessageListener((message: any) => {
     switch (message.command) {
@@ -168,7 +176,7 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
     vscode.postMessage({
         command: "replace-all",
         paths: searchResults.value,
-        mode: settings.mode,
+        settings,
         code,
     });
   };
@@ -177,7 +185,7 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
     vscode.postMessage({
         command: "replace-all",
         paths: [selectedPath],
-        mode: settings.mode,
+        settings,
         code,
     });
   };
@@ -194,6 +202,22 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
         path: path
     });
   };
+
+  const executionPreviewZeroState = (
+    <NonIdealState title="Select a file" description="Select a file on the left to preview results" />
+  );
+
+  const executionPreview = (<ExecutionPreview
+    inputFilePath={selectedPath}
+    inputFileContents={fileContents}
+    outputFileContents={transformedContents}
+    selectedNode={selectedNode}
+    selection={selection}
+    beforeVsAfterSplit={layout.beforeVsAfterSplit}
+    mode={settings.mode}
+    onChangeSelection={setSelection}
+    onChangeBeforeVsAfterSplit={beforeVsAfterSplit => setLayout({ ...layout, beforeVsAfterSplit })}
+  />);
 
   return (
     <div className={"app " + Classes.DARK}>
@@ -234,17 +258,7 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
               <TextArea className="code" onChange={handleChangeCode} value={code} />
             </div>
             <div className="preview-and-execute-row">
-              <ExecutionPreview
-                inputFilePath={selectedPath}
-                inputFileContents={fileContents}
-                outputFileContents={transformedContents}
-                selectedNode={selectedNode}
-                selection={selection}
-                beforeVsAfterSplit={layout.beforeVsAfterSplit}
-                mode={settings.mode}
-                onChangeSelection={setSelection}
-                onChangeBeforeVsAfterSplit={beforeVsAfterSplit => setLayout({ ...layout, beforeVsAfterSplit })}
-              />
+              {selectedPath === undefined ? executionPreviewZeroState : executionPreview}
               <ActionButtons
                 selectedPath={selectedPath}
                 numSearchResults={searchResults.state === "loading" ? 0 : searchResults.value.length}

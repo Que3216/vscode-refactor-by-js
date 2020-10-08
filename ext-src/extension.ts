@@ -104,7 +104,7 @@ class RefactorByJsPanel {
 						path: message.path,
 						contents: message.contents,
 						code: message.code,
-						transformedContents: transformFileForPreview(message.path, message.contents, message.code, message.mode),
+						transformedContents: transformFileForPreview(message.path, message.contents, message.code, message.settings),
 					});
 					return;
 				case 'transform-selected-node':
@@ -131,7 +131,7 @@ class RefactorByJsPanel {
 								const fileUri = vscode.Uri.file(path);
 								const encodedContents = await vscode.workspace.fs.readFile(fileUri);
 								const decodedContents = new TextDecoder("utf-8").decode(encodedContents);
-								const updatedContents = transformFile(path, decodedContents, message.code, message.mode);
+								const updatedContents = transformFile(path, decodedContents, message.code, message.settings);
 								if (updatedContents !== decodedContents) {
 									await vscode.workspace.fs.writeFile(fileUri, new TextEncoder().encode(updatedContents));
 								}
