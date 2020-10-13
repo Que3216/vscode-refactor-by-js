@@ -12,7 +12,7 @@ export interface IExample {
 
 export const EXAMPLES = [
 {
-    name: "Available varialbes",
+    name: "Available variables",
     mode: IMode.TransformCode,
     code: `return JSON.stringify({ text, path, pathToPackageRoot }, null, "  ");`,
 },
@@ -64,7 +64,7 @@ function isImportOf(line, name, module) {
 `,
 },
 {
-    name: "Rename package",
+    name: "Rename package [AST]",
     mode: IMode.TransformAST,
     code: `
 return renamePackage("@package/old", "@package/new");
@@ -78,7 +78,7 @@ function renamePackage(oldName, newName) {
 }`,
 },
 {
-    name: "Move imports between packages",
+    name: "Move imports between packages [AST]",
     mode: IMode.TransformAST,
     code: `
 return moveImport("importName", "@package/old", "@package/new");
