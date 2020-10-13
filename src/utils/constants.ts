@@ -26,7 +26,7 @@ text = text.replace(/myOldObject/g, "myObject");
 return text;
 
 function addImport(text, name, module) {
-    const lines = text.split("\n");
+    const lines = text.split("\\n");
     const newLines = [];
     const indexOfLastImport = lines.lastIndexOf([...lines].reverse().find(line => line.match(/} from "[^"]*";/)));
     let importAdded = false;
@@ -39,11 +39,11 @@ function addImport(text, name, module) {
         }
         newLines.push(line);
     });
-    return newLines.join("\n");
+    return newLines.join("\\n");
 }
 
 function removeImport(text, name, module) {
-    const lines = text.split("\n");
+    const lines = text.split("\\n");
     const newLines = [];
     lines.forEach(line => {
         if (!isImportOf(line, name, module)) {
@@ -55,7 +55,7 @@ function removeImport(text, name, module) {
         }
         newLines.push(line.replace(\${name}, \`, "").replace(\`, \${name}\`, ""));
     });
-    return newLines.join("\n");
+    return newLines.join("\\n");
 }
 
 function isImportOf(line, name, module) {
