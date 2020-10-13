@@ -17,27 +17,51 @@ export const EXAMPLES = [
     code: `return JSON.stringify({ text, path, pathToPackageRoot }, null, "  ");`,
 },
 {
-    name: "Add import",
+    name: "Add/remove imports",
     mode: IMode.TransformCode,
     code: `
-return addImport("myObject", pathToPackageRoot + "/myFile.ts");
+text = addImport(text, "myObject", pathToPackageRoot + "/myFile");
+text = removeImport(text, "myOldObject", "my-package");
+text = text.replace(/myOldObject/g, "myObject");
+return text;
 
-function addImport(name, module) {
-    const lines = text.split("\\n");
+function addImport(text, name, module) {
+    const lines = text.split("\n");
     const newLines = [];
-    let seenImports = false;
-    let addedImport = false;
-    lines.forEach(line => {
-        if (line.startsWith("import ")) {
-            seenImports = true;
-        } else if (seenImports && !addedImport && line === "") {
+    const indexOfLastImport = lines.lastIndexOf([...lines].reverse().find(line => line.match(/} from "[^"]*";/)));
+    let importAdded = false;
+    lines.forEach((line, index) => {
+        if (isImportOf(line, name, module)) {
+            importAdded = true;
+        } else if (index > indexOfLastImport && !importAdded) {
             newLines.push(\`import { \${name} } from "\${module}";\`);
-            addedImport = true;
+            importAdded = true;
         }
         newLines.push(line);
     });
-    return newLines.join("\\n");
-}`,
+    return newLines.join("\n");
+}
+
+function removeImport(text, name, module) {
+    const lines = text.split("\n");
+    const newLines = [];
+    lines.forEach(line => {
+        if (!isImportOf(line, name, module)) {
+            newLines.push(line);
+            return;
+        }
+        if (line.indexOf(",") === -1) {
+            return;
+        }
+        newLines.push(line.replace(\${name}, \`, "").replace(\`, \${name}\`, ""));
+    });
+    return newLines.join("\n");
+}
+
+function isImportOf(line, name, module) {
+    return line.startsWith("import ") && line.indexOf(\`from "\${module}";\`) > -1 && (line.indexOf(\` \${name} \`) > -1 || line.indexOf(\`\${name}, \`) > -1);
+}
+`,
 },
 {
     name: "Rename package",
