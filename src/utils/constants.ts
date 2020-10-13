@@ -28,7 +28,7 @@ return text;
 function addImport(text, name, module) {
     const lines = text.split("\\n");
     const newLines = [];
-    const indexOfLastImport = lines.lastIndexOf([...lines].reverse().find(line => line.match(/} from "[^"]*";/)));
+    const indexOfLastImport = lines.lastIndexOf([...lines].reverse().find(line => line.match(/} from ['"][^"']*['"];/)));
     let importAdded = false;
     lines.forEach((line, index) => {
         if (isImportOf(line, name, module)) {
@@ -59,7 +59,12 @@ function removeImport(text, name, module) {
 }
 
 function isImportOf(line, name, module) {
-    return line.startsWith("import ") && line.indexOf(\`from "\${module}";\`) > -1 && (line.indexOf(\` \${name} \`) > -1 || line.indexOf(\`\${name}, \`) > -1);
+    if (!line.startsWith("import ")) {
+        return false;
+    }
+    const moduleMatches = line.indexOf(\`from "\${module}";\`) > -1 || line.indexOf(\`from '\${module}';\`) > -1;
+    const importedItemNameMatches = line.indexOf(\` \${name} \`) > -1 || line.indexOf(\`\${name}, \`) > -1;
+    return moduleMatches && importedItemNameMatches;
 }
 `,
 },
