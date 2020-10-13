@@ -53,7 +53,7 @@ function removeImport(text, name, module) {
         if (line.indexOf(",") === -1) {
             return;
         }
-        newLines.push(line.replace(\${name}, \`, "").replace(\`, \${name}\`, ""));
+        newLines.push(line.replace(\`\${name}, \`, "").replace(\`, \${name}\`, ""));
     });
     return newLines.join("\\n");
 }
