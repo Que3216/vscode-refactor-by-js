@@ -1,4 +1,4 @@
-import { Classes, InputGroup, Label, NonIdealState, TextArea } from "@blueprintjs/core";
+import { Button, Callout, Classes, InputGroup, Label, NonIdealState, TextArea } from "@blueprintjs/core";
 import * as React from 'react';
 import PanelGroup, { PanelWidth } from "react-panelgroup";
 import { IFileContents, IMode, ISelectedNode, ISelection, ISettings } from "../model/model";
@@ -34,6 +34,7 @@ const DEFUALT_PATH_GLOB = "{**/*.ts,**/*.tsx}";
 interface IState {
   pathGlob: string;
   searchText: string;
+  showSearchControls: boolean;
   selectedPath: string | undefined;
   code: string;
   layout: Layout;
@@ -51,6 +52,7 @@ const DEFAULT_STATE: IState = {
   searchText: "",
   selectedPath: undefined,
   code: DEFAULT_CODE,
+  showSearchControls: false,
   layout: {
     searchSidebarVsMainSplit: [{ size: 250 }, {}],
     codeVsResultsSplit: [{ size: 300 }, {}],
@@ -73,6 +75,7 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
   const [pathGlob, setPathGlob] = React.useState<string>(initialState.pathGlob);
   const [layout, setLayout] = React.useState<Layout>(initialState.layout);
   const [searchText, setSearchText] = React.useState<string>(initialState.searchText);
+  const [showSearchControls, setShowSearchControls] = React.useState<boolean>(initialState.showSearchControls || false);
   const [searchResults, setSearchResults] = React.useState<LoadState<string[]>>({ state: "loading" });
   const [selectedPath, setSelectedPath] = React.useState<string | undefined>(initialState.selectedPath);
   const [fileContents, setFileContents] = React.useState<IFileContents | undefined>(undefined);
@@ -90,8 +93,9 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
       code,
       layout,
       settings,
+      showSearchControls,
     });
-  }, [pathGlob, searchText, selectedPath, code, layout, settings])
+  }, [pathGlob, searchText, selectedPath, code, layout, settings, showSearchControls])
 
   React.useEffect(() => {  
     if (initialState.selectedPath !== undefined && fileContents === undefined) {
@@ -99,19 +103,10 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
     }
   }, []);
 
-  useDebouncedEffect(() => {
-    vscode.postMessage({
-      command: "search-text-changed",
-      pathGlob,
-      searchText,
-    });
-  }, 750, [searchText, pathGlob]);
-
   React.useEffect(() => {
+    // Signal that we're ready to listen for events
     vscode.postMessage({
-      command: "search-text-changed",
-      pathGlob,
-      searchText,
+      command: "activated",
     });
   }, []);
 
@@ -147,6 +142,11 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
   useMessageListener((message: any) => {
     switch (message.command) {
         case "new-search-results":
+          vscode.postMessage({
+            command: "log-message",
+            message: "Got search results",
+            searchResults: message.searchResults,
+          });
           setSearchResults({ state: "loaded", value: message.searchResults });
           break;
         case "loaded-file-contents":
@@ -190,6 +190,24 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
     });
   };
 
+  const handleClickSearch = () => {
+    vscode.postMessage({
+      command: "search-text-changed",
+      pathGlob,
+      searchText,
+    });
+  };
+
+  const handleClickNewSearch = () => {
+    vscode.postMessage({
+      command: "open-search-editor",
+   });
+  }
+  
+  const handleClickShowSearchControls = () => {
+    setShowSearchControls(!showSearchControls);
+  }
+
   const handleChangeCode = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     setCode(event.target.value);
   };
@@ -204,7 +222,14 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
   };
 
   const executionPreviewZeroState = (
-    <NonIdealState title="Select a file" description="Select a file on the left to preview results" />
+    <NonIdealState title="Select a file" description={<div>
+      <p>Select a file on the left to preview results</p>
+      <br />
+      <Callout intent="primary" icon="lightbulb" title="Tip" style={{ textAlign: "left" }}>
+        Click the 'Examples' button in the top right to view examples
+      </Callout>
+      </div>
+     } />
   );
 
   const executionPreview = (<ExecutionPreview
@@ -228,19 +253,38 @@ export const App: React.FC<IAppProps> = ({ vscode }) => {
         onUpdate={widths => setLayout({ ...layout, searchSidebarVsMainSplit: widths as PanelWidth[] })}
       >
         <div className="search-column">
-          <Label className="search-box-label">
+          {<Button
+              text={"Search controls"}
+              minimal={true}
+              alignText="left"
+              small={true}
+              icon={showSearchControls ? "caret-down" : "caret-right"}
+              onClick={handleClickShowSearchControls}
+              className={"search-controls-toggle"}
+          />}
+          {showSearchControls && <Label className="search-box-label">
             Search text
             <InputGroup onChange={handleChangeSearchText} value={searchText} />
-          </Label>
-          <Label className="search-box-label">
+          </Label>}
+          {showSearchControls && <Label className="search-box-label">
             Files to include
             <InputGroup onChange={handleChangePathGlob} value={pathGlob} />
-          </Label>
+          </Label>}
+          {showSearchControls && <Button
+              text={"Search"}
+              small={true}
+              icon={"search"}
+              onClick={handleClickSearch}
+          />}
           <FileList
             filePaths={searchResults}
             selectedFilePath={selectedPath}
             onSelectFile={handleSelectFile}
           />
+          {<Button
+              text={"New Search from Editor"}
+              onClick={handleClickNewSearch}
+          />}
         </div>
         <div className="editor-column">
           <PanelGroup

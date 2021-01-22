@@ -4,8 +4,10 @@ import * as fs from 'fs';
 import { transformFile, transformFileForPreview, transformSelectedNode } from './transform/transformFile';
 import { sourceFileToAst } from './sourceFileToAst';
 
+const COMMAND_NAME = "vscode-refactor-by-js.start";
+
 export function activate(context: vscode.ExtensionContext) {
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-refactor-by-js.start', () => {
+	context.subscriptions.push(vscode.commands.registerCommand(COMMAND_NAME, () => {
 		RefactorByJsPanel.createOrShow(context.extensionPath);
 	}));
 
@@ -34,9 +36,18 @@ class RefactorByJsPanel {
 	private readonly _extensionPath: string;
 	private _disposables: vscode.Disposable[] = [];
 	private currentSearch: vscode.CancellationTokenSource = new vscode.CancellationTokenSource();
+	private paths: string[] = [];
 
 	public static createOrShow(extensionPath: string) {
-		const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
+		const activeEditor = vscode.window.activeTextEditor;
+		const isFromSearchEditor = activeEditor && activeEditor.document.uri.scheme === "search-editor";
+		const searchEditorText = isFromSearchEditor && activeEditor && activeEditor.document.getText();
+		let column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
+
+		if (!isFromSearchEditor) {
+			openSearchEditor();
+			return;
+		}
 
 		// If we already have a panel, show it.
 		// Otherwise, create a new panel.
@@ -53,6 +64,14 @@ class RefactorByJsPanel {
 				]
 			});
 			RefactorByJsPanel.currentPanel = new RefactorByJsPanel(panel, extensionPath);
+		}
+
+		if (isFromSearchEditor) {
+			const lines = (searchEditorText || "").split("\n");
+			const fileNames = lines
+				.filter(line => line !== "" && !line.startsWith(" ") && line.endsWith(":"))
+				.map(line => line.substr(0, line.length - 1));
+			RefactorByJsPanel.currentPanel.populateResultsFromSearchEditor(fileNames.map(name => path.join(vscode.workspace.rootPath || "", name)));
 		}
 	}
 
@@ -85,6 +104,19 @@ class RefactorByJsPanel {
 		// Handle messages from the webview
 		this._panel.webview.onDidReceiveMessage(message => {
 			switch (message.command) {
+				case 'open-search-editor':
+					openSearchEditor();
+					return;
+				case 'log-message':
+					console.log(message);
+					return;
+				case 'activated':
+					this._panel.webview.postMessage({
+						command: 'new-search-results',
+						searchResults: this.paths,
+						fromSearchEditor: true,
+					});
+					return;
 				case 'search-text-changed':
 					this.searchFor(message.pathGlob, message.searchText);
 					return;
@@ -148,6 +180,10 @@ class RefactorByJsPanel {
 					return;
 			}
 		}, null, this._disposables);
+	}
+
+	public populateResultsFromSearchEditor(paths: string[]) {
+		this.paths = paths;
 	}
 
 	private async searchFor(pathGlob: string, searchText: string) {
@@ -245,4 +281,21 @@ function getNonce() {
 		text += possible.charAt(Math.floor(Math.random() * possible.length));
 	}
 	return text;
+}
+
+async function openSearchEditor() {
+	await vscode.commands.executeCommand("search.action.openEditor");
+	vscode.window.showInformationMessage("Search for the files you wish to refactor and then click the 'Refactor Files' status bar item (or re-run the 'Refactor by JS' command)", { modal: true });
+	const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 1000);
+	statusBarItem.command = COMMAND_NAME;
+	statusBarItem.text = "                            |          >>>  $(replace-all) Refactor Files <<<          |                            ";
+	statusBarItem.tooltip = "Click here when you've finished searching for the files to refactor";
+	statusBarItem.show();
+	let activeTextEditorListener: vscode.Disposable = vscode.Disposable.from();
+	activeTextEditorListener = vscode.window.onDidChangeActiveTextEditor(e => {
+		if (!e || e.document.uri.scheme !== "search-editor") {
+			statusBarItem.dispose();
+			activeTextEditorListener.dispose();
+		}
+	});
 }

@@ -1,4 +1,4 @@
-import { Classes, Menu, MenuItem } from "@blueprintjs/core";
+import { Classes, Menu, MenuDivider, MenuItem } from "@blueprintjs/core";
 import * as React from 'react';
 import { LoadState } from '../utils/LoadState';
 import './fileList.css';
@@ -24,9 +24,18 @@ export const FileList: React.FC<IFileListProps> = ({ filePaths, selectedFilePath
             active={path === selectedFilePath}
         />
     ));
+
+    if (files.length === 0) {
+      return <Menu className="file-list">
+        <MenuDivider title="Files to be refactored" />
+        <MenuItem text="No files found" disabled={true}  />
+      </Menu>;
+    }
+
     return <Menu className="file-list">
+      <MenuDivider title="Files to be refactored" />
       {files}
-      {filePaths.value.length > MAX_FILES ? <MenuItem text="More files not shown..." /> : undefined}
+      {filePaths.value.length > MAX_FILES ? <MenuItem text="More files not shown..." disabled={true} /> : undefined}
     </Menu>;
 };
 

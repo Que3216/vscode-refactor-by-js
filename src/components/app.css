@@ -17,7 +17,7 @@
   overflow: hidden;
 }
 
-.search-column .search-box-label.bp3-label {
+.search-column .search-box-label.bp3-label, .search-column .search-controls-toggle {
   padding: 10px;
   margin: 0;
   border-bottom: 1px solid #111213;
