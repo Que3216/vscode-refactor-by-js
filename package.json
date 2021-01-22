@@ -3,7 +3,7 @@
   "displayName": "Refactor by JS",
   "description": "Write javascript functions to bulk refactor your source code, with live preview.",
   "icon": "images/ts-logo.png",
-  "version": "0.0.15",
+  "version": "0.0.16",
 	"engines": {
 		"vscode": "^1.47.0"
 	},
